@@ -1,0 +1,334 @@
+﻿#pragma once
+#pragma execution_character_set("utf-8")
+#include "dm90_compressorview.h"
+#include "custom_checkbox.h"
+#include "custom_button.h"
+#include "../window_dm90.h"
+
+dm90_compressorView::dm90_compressorView(QWidget *parent) : QWidget(parent)
+{
+    this->setAttribute(Qt::WA_StyledBackground,true);
+}
+void dm90_compressorView::createUI(){
+    QWidget *mianView = new QWidget(this);
+    mianView->move(40*m_Magnification,50*m_Magnification);
+    mianView->setAttribute(Qt::WA_StyledBackground,true);
+    mianView->resize(this->width()-80*m_Magnification,this->height()-100*m_Magnification);
+    mianView->setStyleSheet("background:rgb(17,17,17);border-radius: 15px;");
+
+
+    m_highEQ_btn= new custom_checkbox(mianView);
+    m_highEQ_btn->setText(tr("  压缩器"));
+    language_index==0?m_highEQ_btn->resize(120*m_Magnification,40*m_Magnification):m_highEQ_btn->resize(230*m_Magnification,40*m_Magnification);
+    m_highEQ_btn->move(20*m_Magnification , 20*m_Magnification);
+    QString highpass_stys=QString(  "QCheckBox{font-family:'Source Han Sans CN Medium';color:rgb(255,255,255);font-size:%1px;}"
+                                    "QCheckBox::hover{font-family:'Source Han Sans CN Medium';color:rgb(54,54,54);font-size:%1px;}"
+                                    "QCheckBox::indicator{width:%2px;height:%2px;color: rgb(255, 0, 0);}"
+                                    "QCheckBox::indicator:unchecked{border-image:url(:/image/images/pd400_xianfuunclick_btn.png.png);}"
+                                    "QCheckBox::indicator:checked{border-image:url(:/image/images/pd400_xianfuclick_btn.png);}"
+                                    "QCheckBox:focus{outline: none;}").arg(30*m_Magnification).arg(14*m_Magnification);
+    m_highEQ_btn->setStyleSheet(highpass_stys);
+    m_highEQ_btn->setCheckState(Qt::Checked);
+    m_highEQ_btn->setLayoutDirection(Qt::RightToLeft);
+    connect(m_highEQ_btn,SIGNAL(stateChanged(int)),this,SLOT(isopen_enable_click(int)));
+
+    //创建进度条
+    QVector<QString>threshouldTitle={tr("压缩阈值"),tr("启动时间"),tr("压缩比"),tr("恢复时间")};
+    QVector<QString>highlowLeft={"-40dB","1ms","1:1","1ms"};
+    QVector<QString>highlowRight={"-0.5dB","800ms","100:1","3000ms"};
+
+
+    //最小值
+    QVector<int>slider_minValue={0,10,10,10};
+    //最大值
+    QVector<int>slider_maxValue={395,8000,1000,30000};
+
+    for (int j=0;j<2;j++) {
+
+        for (int i=0;i<2;i++) {
+            QWidget *threshould_unit = new QWidget(mianView);
+            threshould_unit->setAttribute(Qt::WA_StyledBackground,true);
+            threshould_unit->resize(mianView->width()/2,100*m_Magnification);
+            threshould_unit->move(mianView->width()/2*i,m_highEQ_btn->height()+m_highEQ_btn->height() +threshould_unit->height()*j);
+
+
+            QLabel *threshould_lab = new QLabel(threshould_unit);
+            threshould_lab->move(40*m_Magnification,14*m_Magnification);
+            threshould_lab->resize(180*m_Magnification,16*m_Magnification);
+            threshould_lab->setText(threshouldTitle.at(i+2*j));
+            QString highLow_lab_stys = QString("background-color:transparent;color:rgb(255,255,255);font-size:%1px;font-family:'Source Han Sans CN Medium'").arg(12*m_Magnification);
+            threshould_lab->setStyleSheet(highLow_lab_stys);
+
+            MySlider *compress_slider = new MySlider(threshould_unit);
+            compress_slider->setOrientation(Qt::Horizontal);
+            compress_slider->setMinimum(slider_minValue.at(i+2*j));
+            compress_slider->setMaximum(slider_maxValue.at(i+2*j));
+            compress_slider->setValue(xianfuqi_slider_values.at(0));
+            compress_slider->setGeometry(40*m_Magnification,threshould_lab->y()+threshould_lab->height()+10*m_Magnification,310*m_Magnification,12*m_Magnification);
+            compress_slider->setObjectName(QString::number(i+2*j,10));
+            connect(compress_slider,SIGNAL(valueChanged(int)),this,SLOT(compress_chanege_value(int)));
+            connect(compress_slider,SIGNAL(sliderReleasedAt(int)),this,SLOT(compress_release_value(int)));
+            m_compressSliders.push_back(compress_slider);
+
+            QLabel *current_value = new QLabel(threshould_unit);
+            current_value->move(compress_slider->width()+compress_slider->x()+10*m_Magnification,compress_slider->y()-2*m_Magnification);
+            current_value->resize(60*m_Magnification,14*m_Magnification);
+            current_value->setText("-80dB");
+            QString currentLabel_stys = QString("background-color:transparent;color:rgb(255,255,255);font-size:%1px;font-family:'Source Han Sans CN Medium'").arg(12*m_Magnification);
+            current_value->setStyleSheet(currentLabel_stys);
+            m_showValueLabels.push_back(current_value);
+
+            QLabel *left_value = new QLabel(threshould_unit);
+            left_value->resize(40*m_Magnification,14*m_Magnification);
+            left_value->move(compress_slider->x(),compress_slider->y()+compress_slider->height()+5*m_Magnification);
+            left_value->setText(highlowLeft.at(i+2*j));
+            left_value->setStyleSheet(currentLabel_stys);
+
+            QLabel *right_value = new QLabel(threshould_unit);
+            right_value->resize(50*m_Magnification,16*m_Magnification);
+            right_value->move(compress_slider->x()+compress_slider->width()-right_value->width(),compress_slider->y()+compress_slider->height()+5*m_Magnification);
+            right_value->setText(highlowRight.at(i+2*j));
+            right_value->setStyleSheet(currentLabel_stys);
+            right_value ->setAlignment(Qt::AlignRight);
+
+        }
+    }
+    QVector<QString>title_btns={tr("重置"),tr("确认")};
+    for (int i=0;i<2;i++) {
+        custom_button *reset_confirm_btn = new custom_button(this);
+        reset_confirm_btn->resize(76*m_Magnification,26*m_Magnification);
+        reset_confirm_btn->move(338*m_Magnification +i*156*m_Magnification ,this->height()-reset_confirm_btn->height()-100*m_Magnification);
+        reset_confirm_btn->setText(title_btns.at(i));
+        if(i==0){
+            QString reset_confirm_btn_stys=QString("QPushButton{border-image:url(:/image/images/pd400_xianfu_reset.png);font-family:'Source Han Sans CN Medium';color:white;font-size:%1px;}"
+                                                   "QPushButton:hover{border-image:url(:/image/images/pd400_xianfu_reset.png);font-family:'Source Han Sans CN Medium';color:rgb(54,54,54);font-size:%1px;}"
+                                                   "QPushButton:focus{outline: none;}").arg(15*m_Magnification);
+            reset_confirm_btn->setStyleSheet(reset_confirm_btn_stys);
+            reset_confirm_btn->connect(reset_confirm_btn,SIGNAL(clicked()),this,SLOT(reset_click()));
+        }else{
+            QString reset_confirm_btn_stys=QString("QPushButton{border-image:url(:/image/images/pd400_xianfu_confirm.png);font-family:'Source Han Sans CN Medium';color:white;font-size:%1px;}"
+                                                   "QPushButton:hover{border-image:url(:/image/images/pd400_xianfu_confirm.png);font-family:'Source Han Sans CN Medium';color:rgb(54,54,54);font-size:%1px;}"
+                                                   "QPushButton:focus{outline: none;}").arg(15*m_Magnification);
+            reset_confirm_btn->setStyleSheet(reset_confirm_btn_stys);
+            reset_confirm_btn->connect(reset_confirm_btn,SIGNAL(clicked()),this,SLOT(confirm_click()));
+
+        }
+        //m_btns.push_back(reset_confirm_btn);
+    }
+
+}
+
+//获取数据后刷新这个UI界面
+void dm90_compressorView::refreshUI(){
+
+    //按钮的使能状态
+    if(GET_DEVICE_DATA->dm90_Comp_Enable){//打开
+        m_highEQ_btn->setCheckState(Qt::Checked);
+    }else{//关闭
+        m_highEQ_btn->setCheckState(Qt::Unchecked);
+    }
+
+    for (int i =0;i<m_compressSliders.count();i++) {
+
+        MySlider *current_slider = m_compressSliders.at(i);
+        current_slider->blockSignals(true);
+
+        switch (i) {
+
+        case COMPRESS_SLIDER:{
+
+            double show_number = dm90_deviceDataSource::getInstance()->loadingChangeNegativeNumber(GET_DEVICE_DATA->dm90_Comp_Threshold);
+            current_slider->setValue(show_number*10+400);
+            m_showValueLabels.at(i)->setText(QString::number(show_number,'f',1)+"dB");
+        }
+            break;
+
+        case ATTACK_SLIDER:{
+
+            current_slider->setValue(GET_DEVICE_DATA->dm90_Comp_Attack);
+            double showNumber = (double)GET_DEVICE_DATA->dm90_Comp_Attack/10;
+            m_showValueLabels.at(i)->setText(QString::number(showNumber,'f',1)+"ms");
+
+        }
+            break;
+
+        case COMPRESS_RATE:{
+
+            current_slider->setValue(GET_DEVICE_DATA->dm90_Comp_Rate/10);
+            double showNumber = (double)GET_DEVICE_DATA->dm90_Comp_Rate/100;
+            m_showValueLabels.at(i)->setText(QString::number(showNumber,'f',1)+":1");
+
+        }
+            break;
+
+        case COMPRESS_RELEASE:{
+
+            current_slider->setValue(GET_DEVICE_DATA->dm90_Comp_Release);
+            double showNumber = (double)GET_DEVICE_DATA->dm90_Comp_Release/10;
+            m_showValueLabels.at(i)->setText(QString::number(showNumber,'f',1)+"ms");
+
+        }
+            break;
+
+        default:
+            break;
+
+        }
+
+        current_slider->blockSignals(false);
+    }
+}
+
+
+void dm90_compressorView::compress_chanege_value(int value){
+
+    m_DM90delayTimer->stop();
+    m_DM90delayTimer->start(20);
+    MySlider *detonator_slider = static_cast<MySlider *>(sender());
+    int slider_number = detonator_slider->objectName().toUInt();
+    m_currentSliderNum = slider_number;
+
+    switch (slider_number) {
+    case COMPRESS_SLIDER:{
+
+        double show_number = (double)value/10-40;
+        m_showValueLabels.at(slider_number)->setText(QString::number(show_number,'f',1)+"dB");
+
+    }
+        break;
+
+    case ATTACK_SLIDER:{
+
+        double show_number = (double)value/10;
+        m_showValueLabels.at(slider_number)->setText(QString::number(show_number,'f',1)+"ms");
+
+    }
+        break;
+
+    case COMPRESS_RATE:{
+
+        double show_number = (double)value/10;
+        m_showValueLabels.at(slider_number)->setText(QString::number(show_number,'f',1)+":1");
+
+    }
+        break;
+
+    case COMPRESS_RELEASE:{
+
+        double show_number = (double)value/10;
+        m_showValueLabels.at(slider_number)->setText(QString::number(show_number,'f',1)+"ms");
+
+    }
+        break;
+
+    default:
+        break;
+    }
+}
+//发送数据
+void dm90_compressorView::compressorStarDelayTimerFun(){
+
+    if(Qwdget_timer_index==7){       
+        window_dm90* mainWindow = (window_dm90*)(this->parentWidget()->parentWidget());//获取列表视图
+        //发送数据
+        MySlider *current_slider = m_compressSliders.at(m_currentSliderNum);
+        switch (m_currentSliderNum) {
+        case COMPRESS_SLIDER:{
+
+           int send_Value = dm90_deviceDataSource::getInstance()->loadingChangeDeviceNumber(double(current_slider->value()-400)/10);
+           m_commin_fun.sendMessageForDevice(DM90PARAM_MIC_COMP_START+1,1,send_Value);
+           GET_DEVICE_DATA->dm90_Comp_Threshold = send_Value;
+           mainWindow->m_midView->m_localCustom_itemList->addItem(mainWindow->m_midView->m_defaultTtemRow,mainWindow->m_midView->m_itemtext,71+1,send_Value);
+        }
+            break;
+
+        case ATTACK_SLIDER:{
+
+            qDebug()<<"ATTACK_SLIDER"<<current_slider->value();
+            m_commin_fun.sendMessageForDevice(DM90PARAM_MIC_COMP_START+2,1,current_slider->value());
+            GET_DEVICE_DATA->dm90_Comp_Attack = current_slider->value();
+            mainWindow->m_midView->m_localCustom_itemList->addItem(mainWindow->m_midView->m_defaultTtemRow,mainWindow->m_midView->m_itemtext,71+2,current_slider->value());
+
+        }
+            break;
+
+        case COMPRESS_RATE:{//压缩比
+
+            m_commin_fun.sendMessageForDevice(DM90PARAM_MIC_COMP_START+4,1,current_slider->value()*10);
+            GET_DEVICE_DATA->dm90_Comp_Rate = current_slider->value()*10;
+            mainWindow->m_midView->m_localCustom_itemList->addItem(mainWindow->m_midView->m_defaultTtemRow,mainWindow->m_midView->m_itemtext,71+4,current_slider->value());
+        }
+            break;
+
+        case COMPRESS_RELEASE:{
+
+            m_commin_fun.sendMessageForDevice(DM90PARAM_MIC_COMP_START+3,1,current_slider->value());
+            GET_DEVICE_DATA->dm90_Comp_Release = current_slider->value();
+            mainWindow->m_midView->m_localCustom_itemList->addItem(mainWindow->m_midView->m_defaultTtemRow,mainWindow->m_midView->m_itemtext,71+3,current_slider->value());
+        }
+            break;
+
+        default:
+            break;
+        }
+        //发完数据之后停止计时器
+        m_DM90delayTimer->stop();
+    }
+}
+
+void dm90_compressorView::compress_release_value(int){
+
+
+}
+//重置按钮=====================
+void dm90_compressorView::reset_click(){
+
+    //刷新当前UI界面
+    GET_DEVICE_DATA->dm90_Comp_Enable = 0;
+    GET_DEVICE_DATA->dm90_Comp_Threshold = 1800;
+    GET_DEVICE_DATA->dm90_Comp_Attack = 1000;
+    GET_DEVICE_DATA->dm90_Comp_Release = 300;
+    GET_DEVICE_DATA->dm90_Comp_Rate = 200;
+    refreshUI();//刷新界面
+    //发送数据
+    QVector<int>addrs;
+    QVector<int>value = {0,1800,1000,300,200};
+    for (int i=0;i<value.count();i++) {
+        addrs.push_back(DM90PARAM_MIC_COMP_START+i);
+    }
+   m_commin_fun.sendRandomMessageForDevice(0x17+4,addrs,value);
+
+}
+
+void dm90_compressorView::confirm_click(){
+
+    this->hide();
+    QWidget* pWidget = this->parentWidget();
+    pWidget->hide();
+
+    Qwdget_timer_index = 1;
+    int send_Value = dm90_deviceDataSource::getInstance()->loadingChangeDeviceNumber(double(m_compressSliders.at(0)->value()-400)/10);
+    GET_DEVICE_DATA->dm90_Comp_Threshold = send_Value;
+    confirmClick(4);
+}
+void dm90_compressorView::isopen_enable_click(int enable_status){
+
+    if(enable_status){//打开
+        if(GET_DEVICE_DATA->dm90_Comp_Enable != enable_status-1)
+        m_commin_fun.sendMessageForDevice(DM90PARAM_MIC_COMP_START,1,1);
+        for (int i=0;i<m_compressSliders.count();i++) {
+          m_compressSliders.at(i)->setSliderDisable(false);
+        }
+        GET_DEVICE_DATA->dm90_Comp_Enable =1;
+
+    }else{//关闭
+        if(GET_DEVICE_DATA->dm90_Comp_Enable != enable_status)
+        m_commin_fun.sendMessageForDevice(DM90PARAM_MIC_COMP_START,1,0);
+        for (int i=0;i<m_compressSliders.count();i++) {
+          m_compressSliders.at(i)->setSliderDisable(true);
+        }
+        GET_DEVICE_DATA->dm90_Comp_Enable =0;
+    }
+}
+
+
